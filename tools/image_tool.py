@@ -1,144 +1,101 @@
 """
-Image retrieval for travel destinations.
+Image retrieval for travel destinations using real web search.
 
-Provides curated, reliably-hosted images for the four known cities
-using picsum.photos (a free image service that delivers real photographs).
-For unknown cities, generates themed placeholder URLs using the same
-service with different seed values.
+Instead of serving random placeholder photos, this module queries
+DuckDuckGo Images to find actual photographs of the city's landmarks,
+skyline, and tourist attractions. The results are real, publicly-hosted
+images that match the destination being explored.
 
-The assignment explicitly permits mock/simulated APIs, so this
-approach is both valid and more reliable than linking to external
-image hosts that may block cross-origin requests.
+Fallback: If the image search fails (rate limits, network issues), we
+return a small set of seeded placeholders so the UI never breaks.
 """
 
+from ddgs import DDGS
 from models.schemas import CityImage
 from config.settings import settings
 
 
-# Curated images for known cities using picsum.photos.
-# Each seed produces a consistent, unique photograph.
-# These are real photographs — not low-quality placeholders.
-CURATED_IMAGES: dict[str, list[CityImage]] = {
-    "Chennai": [
-        CityImage(
-            url="https://picsum.photos/seed/chennai-central/800/500",
-            caption="Historic architecture in the heart of Chennai",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/marina-beach/800/500",
-            caption="Marina Beach stretching along the Bay of Bengal",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/kapaleeshwar/800/500",
-            caption="Kapaleeshwarar Temple in Mylapore",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/santhome-basilica/800/500",
-            caption="San Thome Basilica, a neo-Gothic church in Chennai",
-        ),
-    ],
-    "Mumbai": [
-        CityImage(
-            url="https://picsum.photos/seed/gateway-india/800/500",
-            caption="Gateway of India overlooking Mumbai Harbour",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/cst-mumbai/800/500",
-            caption="Chhatrapati Shivaji Maharaj Terminus — a UNESCO World Heritage Site",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/marine-drive/800/500",
-            caption="Marine Drive, the Queen's Necklace of Mumbai",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/mumbai-skyline/800/500",
-            caption="South Mumbai skyline at dusk",
-        ),
-    ],
-    "New Jersey": [
-        CityImage(
-            url="https://picsum.photos/seed/liberty-park-nj/800/500",
-            caption="Liberty State Park with the Jersey City skyline",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/atlantic-city/800/500",
-            caption="Atlantic City and its famous boardwalk",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/princeton-uni/800/500",
-            caption="Nassau Hall at Princeton University",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/cape-may-nj/800/500",
-            caption="Victorian-era houses in Cape May",
-        ),
-    ],
-    "New York": [
-        CityImage(
-            url="https://picsum.photos/seed/times-square/800/500",
-            caption="Times Square with its iconic billboards and lights",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/statue-liberty/800/500",
-            caption="Statue of Liberty on Liberty Island",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/manhattan-skyline/800/500",
-            caption="Lower Manhattan skyline from Brooklyn Bridge",
-        ),
-        CityImage(
-            url="https://picsum.photos/seed/central-park-ny/800/500",
-            caption="Central Park with the city skyline behind",
-        ),
-    ],
-}
+def search_city_images(city_name: str, max_results: int = 6) -> list[CityImage]:
+    """Search the web for real photographs of a city.
 
-
-def get_images_for_known_city(city_name: str) -> list[CityImage]:
-    """Return curated images for a city in our knowledge base."""
-    # Try exact match first, then case-insensitive
-    if city_name in CURATED_IMAGES:
-        return CURATED_IMAGES[city_name]
-
-    for key, images in CURATED_IMAGES.items():
-        if key.lower() == city_name.lower():
-            return images
-
-    return []
-
-
-def generate_placeholder_images(city_name: str) -> list[CityImage]:
-    """Generate placeholder image URLs for cities we don't have curated
-    images for. Uses picsum.photos which provides random but real
-    photographs — no API key required.
+    Uses DuckDuckGo image search to find actual photos of landmarks,
+    skylines, and popular attractions. The keywords are crafted to
+    prioritize high-quality travel photography over clip-art or logos.
     """
-    # Use city name hash to get consistent but different images per city
+    # Queries designed to return travel photography, not random content.
+    # Adding explicit 'tourist' or 'travel' terms helps DuckDuckGo rank
+    # relevant images higher than unrelated results.
+    queries = [
+        f"{city_name} tourist attractions places to visit",
+        f"{city_name} travel destination skyline scenery",
+    ]
+
+    collected = []
+    seen_urls = set()
+
+    try:
+        ddgs = DDGS()
+        for query in queries:
+            if len(collected) >= max_results:
+                break
+
+            results = list(ddgs.images(
+                query,
+                max_results=max_results + 4,  # fetch extra so we can filter
+            ))
+
+            for img in results:
+                url = img.get("image", "")
+                title = img.get("title", f"View of {city_name}")
+
+                # Skip duplicate URLs or tiny thumbnails
+                if not url or url in seen_urls:
+                    continue
+                if any(bad in url.lower() for bad in ["logo", "icon", "avatar", ".svg"]):
+                    continue
+
+                seen_urls.add(url)
+                collected.append(CityImage(url=url, caption=title))
+
+                if len(collected) >= max_results:
+                    break
+
+    except Exception:
+        # Rate limited or network error — fall through to fallback below
+        pass
+
+    return collected
+
+
+def generate_fallback_images(city_name: str) -> list[CityImage]:
+    """Return themed placeholder URLs when live image search is unavailable.
+
+    Uses picsum.photos with city-derived seeds so each city gets consistent
+    (though generic) images across sessions.
+    """
     slug = city_name.lower().replace(" ", "-")
-    placeholders = []
-    for i in range(4):
-        placeholders.append(
-            CityImage(
-                url=f"https://picsum.photos/seed/{slug}-{i}/800/500",
-                caption=f"Scenic view of {city_name}",
-            )
+    return [
+        CityImage(
+            url=f"https://picsum.photos/seed/{slug}-{i}/800/500",
+            caption=f"Scenic view of {city_name}",
         )
-    return placeholders
+        for i in range(4)
+    ]
 
 
 async def get_images(city_name: str) -> list[CityImage]:
     """Main entry point for image retrieval.
 
-    Checks curated images first (for known cities), then falls back to
-    placeholder images. This two-tier approach means we always have
-    something to show in the UI, which is important for a smooth demo.
+    Attempts a live DuckDuckGo image search first. If that returns
+    nothing (network issues, rate limits), falls back to generic
+    placeholder images so the UI always renders something.
     """
     if settings.USE_MOCK_IMAGES:
-        return generate_placeholder_images(city_name)
+        return generate_fallback_images(city_name)
 
-    # Try curated images for known cities
-    curated = get_images_for_known_city(city_name)
-    if curated:
-        return curated
+    images = search_city_images(city_name)
+    if images:
+        return images
 
-    # Unknown city — use themed placeholders
-    return generate_placeholder_images(city_name)
+    # Live search returned nothing — use fallback
+    return generate_fallback_images(city_name)

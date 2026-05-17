@@ -18,7 +18,7 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from agents.state import AgentState
 from tools.weather_tool import get_weather, generate_mock_weather
-from tools.image_tool import get_images, generate_placeholder_images
+from tools.image_tool import get_images, generate_fallback_images
 from tools.search_tool import search_web
 
 

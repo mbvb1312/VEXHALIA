@@ -27,17 +27,17 @@ async def search_web(query: str, max_results: int = 5) -> list[dict]:
 
     try:
         results = []
-        with DDGS() as ddgs:
-            for result in ddgs.text(
-                query,
-                max_results=max_results,
-                region="wt-wt",  # worldwide
-            ):
-                results.append({
-                    "title": result.get("title", ""),
-                    "body": result.get("body", ""),
-                    "href": result.get("href", ""),
-                })
+        ddgs = DDGS()
+        for result in ddgs.text(
+            query,
+            max_results=max_results,
+            region="wt-wt",  # worldwide
+        ):
+            results.append({
+                "title": result.get("title", ""),
+                "body": result.get("body", ""),
+                "href": result.get("href", ""),
+            })
         return results
 
     except Exception:
