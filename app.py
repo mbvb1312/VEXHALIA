@@ -9,6 +9,16 @@ inline within assistant responses.
 Run with: streamlit run app.py
 """
 
+import os
+import warnings
+
+# Suppress torchvision/transformers warnings from Streamlit file watcher.
+# These are harmless — the transformers library has optional vision model
+# code that references torchvision, but we never use those models.
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+warnings.filterwarnings("ignore", message=".*torchvision.*")
+warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
+
 import streamlit as st
 import plotly.graph_objects as go
 import uuid
@@ -57,11 +67,36 @@ st.markdown("""
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
 
+    /* Animated background */
+    .stApp {
+        background: var(--bg-dark);
+        background-image:
+            radial-gradient(ellipse 80% 50% at 20% 40%, rgba(124, 58, 237, 0.08), transparent),
+            radial-gradient(ellipse 60% 40% at 80% 20%, rgba(59, 130, 246, 0.06), transparent),
+            radial-gradient(ellipse 50% 60% at 50% 80%, rgba(6, 182, 212, 0.05), transparent);
+        background-attachment: fixed;
+    }
+
+    /* Subtle grid overlay for depth */
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background-image:
+            linear-gradient(rgba(148, 163, 184, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(148, 163, 184, 0.03) 1px, transparent 1px);
+        background-size: 60px 60px;
+        pointer-events: none;
+        z-index: 0;
+    }
+
     /* Main container */
     .main .block-container {
         padding-top: 0.5rem;
         padding-bottom: 6rem;
         max-width: 1100px;
+        position: relative;
+        z-index: 1;
     }
 
     /* Hide Streamlit header/footer clutter */
