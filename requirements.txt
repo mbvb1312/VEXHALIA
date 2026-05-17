@@ -1,0 +1,27 @@
+# ============================================================
+# VEXHALIA — Dependencies
+# ============================================================
+
+# --- Core Orchestration ---
+langgraph>=0.4.0
+langchain-openai>=0.3.0
+langchain-community>=0.3.0
+langchain>=0.3.0
+
+# --- Frontend ---
+streamlit>=1.40.0
+plotly>=6.0.0
+
+# --- Vector Store & Embeddings ---
+chromadb>=1.0.0
+sentence-transformers>=3.4.0
+
+# --- External APIs & Search ---
+httpx>=0.28.0
+duckduckgo-search>=7.0.0
+
+# --- Data Validation ---
+pydantic>=2.10.0
+
+# --- Environment Management ---
+python-dotenv>=1.0.0
