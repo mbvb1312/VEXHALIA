@@ -18,7 +18,7 @@ sentence-transformers>=3.4.0
 
 # --- External APIs & Search ---
 httpx>=0.28.0
-duckduckgo-search>=7.0.0
+ddgs>=9.0.0
 
 # --- Data Validation ---
 pydantic>=2.10.0

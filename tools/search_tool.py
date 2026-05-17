@@ -10,7 +10,7 @@ Mock mode returns believable hardcoded results so the full agent
 pipeline can run even offline.
 """
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
 
 from config.settings import settings
 

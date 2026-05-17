@@ -37,7 +37,7 @@ class Settings:
 
     # The similarity threshold below which we consider a city "unknown"
     # and fall back to web search. Lower means stricter matching.
-    SIMILARITY_THRESHOLD: float = 0.35
+    SIMILARITY_THRESHOLD: float = 0.55
 
     # ---- Weather API (Open-Meteo, no key required) ----
     WEATHER_API_BASE: str = "https://api.open-meteo.com/v1"

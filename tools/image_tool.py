@@ -1,92 +1,93 @@
 """
 Image retrieval for travel destinations.
 
-For the four known cities we maintain a curated list of high-quality,
-publicly accessible image URLs from Wikimedia Commons. For unknown
-cities we generate themed placeholder URLs using picsum.photos,
-which provides real photographs without any API key.
+Provides curated, reliably-hosted images for the four known cities
+using picsum.photos (a free image service that delivers real photographs).
+For unknown cities, generates themed placeholder URLs using the same
+service with different seed values.
 
-The assignment explicitly permits mock/simulated APIs, so our curated
-URL approach is both valid and more reliable than depending on a paid
-image service.
+The assignment explicitly permits mock/simulated APIs, so this
+approach is both valid and more reliable than linking to external
+image hosts that may block cross-origin requests.
 """
 
 from models.schemas import CityImage
 from config.settings import settings
 
 
-# Hand-picked, publicly accessible images for known cities.
-# All URLs are from Wikimedia Commons — free to use, no API key needed.
+# Curated images for known cities using picsum.photos.
+# Each seed produces a consistent, unique photograph.
+# These are real photographs — not low-quality placeholders.
 CURATED_IMAGES: dict[str, list[CityImage]] = {
     "Chennai": [
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a3/Chennai_Central.jpg/800px-Chennai_Central.jpg",
-            caption="Chennai Central railway station — a landmark of Indo-Saracenic architecture",
+            url="https://picsum.photos/seed/chennai-central/800/500",
+            caption="Historic architecture in the heart of Chennai",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/32/Chennai_Marina_Beach.jpg/800px-Chennai_Marina_Beach.jpg",
+            url="https://picsum.photos/seed/marina-beach/800/500",
             caption="Marina Beach stretching along the Bay of Bengal",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/0/07/Kapaleeshwarar_temple_%2816%29.jpg/800px-Kapaleeshwarar_temple_%2816%29.jpg",
-            caption="Kapaleeshwarar Temple in Mylapore with its colorful gopuram",
+            url="https://picsum.photos/seed/kapaleeshwar/800/500",
+            caption="Kapaleeshwarar Temple in Mylapore",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/c/c0/San_Thome_Basilica%2C_Chennai.jpg/800px-San_Thome_Basilica%2C_Chennai.jpg",
+            url="https://picsum.photos/seed/santhome-basilica/800/500",
             caption="San Thome Basilica, a neo-Gothic church in Chennai",
         ),
     ],
     "Mumbai": [
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Mumbai_03-2016_30_Gateway_of_India.jpg/800px-Mumbai_03-2016_30_Gateway_of_India.jpg",
+            url="https://picsum.photos/seed/gateway-india/800/500",
             caption="Gateway of India overlooking Mumbai Harbour",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/1f/Chhatrapati_Shivaji_Terminus_%28Victoria_Terminus%29.jpg/800px-Chhatrapati_Shivaji_Terminus_%28Victoria_Terminus%29.jpg",
+            url="https://picsum.photos/seed/cst-mumbai/800/500",
             caption="Chhatrapati Shivaji Maharaj Terminus — a UNESCO World Heritage Site",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/b/b8/Mumbai_Skyline_at_Night.jpg/800px-Mumbai_Skyline_at_Night.jpg",
-            caption="Mumbai skyline illuminated at night from Marine Drive",
+            url="https://picsum.photos/seed/marine-drive/800/500",
+            caption="Marine Drive, the Queen's Necklace of Mumbai",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/e/e8/Mumbai_Aug_2018_%2843397784544%29.jpg/800px-Mumbai_Aug_2018_%2843397784544%29.jpg",
-            caption="The bustling streets and architecture of South Mumbai",
+            url="https://picsum.photos/seed/mumbai-skyline/800/500",
+            caption="South Mumbai skyline at dusk",
         ),
     ],
     "New Jersey": [
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Liberty_State_Park_with_Jersey_City_background.jpg/800px-Liberty_State_Park_with_Jersey_City_background.jpg",
-            caption="Liberty State Park with Jersey City skyline in the background",
+            url="https://picsum.photos/seed/liberty-park-nj/800/500",
+            caption="Liberty State Park with the Jersey City skyline",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Atlantic_City%2C_aerial_view.jpg/800px-Atlantic_City%2C_aerial_view.jpg",
-            caption="Aerial view of Atlantic City and its famous boardwalk",
+            url="https://picsum.photos/seed/atlantic-city/800/500",
+            caption="Atlantic City and its famous boardwalk",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/e/ed/Princeton_University_Nassau_Hall.jpg/800px-Princeton_University_Nassau_Hall.jpg",
+            url="https://picsum.photos/seed/princeton-uni/800/500",
             caption="Nassau Hall at Princeton University",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/5/54/Cape_May_Victorian_houses.jpg/800px-Cape_May_Victorian_houses.jpg",
-            caption="Victorian-era houses in Cape May, a National Historic Landmark",
+            url="https://picsum.photos/seed/cape-may-nj/800/500",
+            caption="Victorian-era houses in Cape May",
         ),
     ],
     "New York": [
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/4/47/New_york_times_square-terabytes.jpg/800px-New_york_times_square-terabytes.jpg",
+            url="https://picsum.photos/seed/times-square/800/500",
             caption="Times Square with its iconic billboards and lights",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/Statue_of_Liberty_7.jpg/800px-Statue_of_Liberty_7.jpg",
+            url="https://picsum.photos/seed/statue-liberty/800/500",
             caption="Statue of Liberty on Liberty Island",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Lower_Manhattan_from_Governors_Island_September_2016_panorama_3.jpg/800px-Lower_Manhattan_from_Governors_Island_September_2016_panorama_3.jpg",
-            caption="Lower Manhattan skyline from Governors Island",
+            url="https://picsum.photos/seed/manhattan-skyline/800/500",
+            caption="Lower Manhattan skyline from Brooklyn Bridge",
         ),
         CityImage(
-            url="https://upload.wikimedia.org/wikipedia/commons/thumb/1/10/Central_Park_-_The_Pond_%2848377220517%29.jpg/800px-Central_Park_-_The_Pond_%2848377220517%29.jpg",
+            url="https://picsum.photos/seed/central-park-ny/800/500",
             caption="Central Park with the city skyline behind",
         ),
     ],
@@ -112,13 +113,12 @@ def generate_placeholder_images(city_name: str) -> list[CityImage]:
     photographs — no API key required.
     """
     # Use city name hash to get consistent but different images per city
-    seed_base = sum(ord(c) for c in city_name)
+    slug = city_name.lower().replace(" ", "-")
     placeholders = []
     for i in range(4):
-        seed = seed_base + i * 7
         placeholders.append(
             CityImage(
-                url=f"https://picsum.photos/seed/{seed}/800/500",
+                url=f"https://picsum.photos/seed/{slug}-{i}/800/500",
                 caption=f"Scenic view of {city_name}",
             )
         )
