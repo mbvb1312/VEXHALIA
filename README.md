@@ -15,8 +15,8 @@ The agent is built as a **LangGraph StateGraph** with conditional routing, paral
 1. **User Input** → The user types a city name or travel query into the Streamlit interface
 2. **Router Node** → Queries the ChromaDB vector store to check if the city exists in the local knowledge base
 3. **Conditional Edge** → Routes to either:
-   - **Vector Retriever** (for known cities: Chennai, Mumbai, New Jersey, New York)
-   - **Web Search** (for any other city worldwide via DuckDuckGo)
+   - **Vector Retriever** (for known cities: Paris, Tokyo, New York) + **Wikipedia Integration**
+   - **Web Search** (for any other city worldwide via DuckDuckGo) + **Wikipedia Integration**
 4. **Parallel Fan-Out** → Weather forecast and image retrieval run **concurrently** (not sequentially)
 5. **Synthesizer** → Combines all data into a structured Pydantic response object
 6. **Streamlit Renderer** → Parses the JSON to display summary, Plotly chart, and image gallery
@@ -38,11 +38,13 @@ To demonstrate understanding of the raw LLM tool-calling protocol. The `tool_exe
 |-----------|-----------|-----|
 | Orchestration | LangGraph | Required — provides state management, conditional edges, and parallel execution |
 | Frontend | Streamlit | Required — renders the multi-modal response as an interactive GUI |
-| LLM | Groq (Llama 3.3 70B) | Free tier with OpenAI-compatible API; project also supports OpenAI GPT-4o and Anthropic Claude 3.5 Sonnet |
+| Primary LLM | Gemini (2.0 Flash) | Free tier via Google API; provides conversational and intelligent reasoning for follow-ups |
+| Fallback LLM | Groq (Llama 3.3 70B) | Automatic fallback using `.with_fallbacks()` — takes over seamlessly if Gemini hits rate limits |
 | Vector Store | ChromaDB | Persistent embeddings with cosine similarity search and metadata filtering |
 | Embeddings | all-MiniLM-L6-v2 | Lightweight sentence transformer, runs on CPU, no API key needed |
 | Weather | Open-Meteo API | Free, no API key, global coverage, 16-day forecast |
 | Web Search | DuckDuckGo | Free, no API key, worldwide results |
+| Wikipedia API | `wikipedia` Python package | Provides enriched factual summaries alongside search/vector results |
 | Charts | Plotly | Interactive line charts with hover details and dual-axis support |
 
 ## Project Structure
@@ -66,10 +68,11 @@ VEXHALIA/
 ├── tools/
 │   ├── weather_tool.py             # Open-Meteo API integration + mock fallback
 │   ├── image_tool.py               # Curated Wikimedia URLs + placeholder fallback
-│   └── search_tool.py              # DuckDuckGo wrapper + mock fallback
+│   ├── search_tool.py              # DuckDuckGo wrapper + mock fallback
+│   └── wikipedia_tool.py           # Wikipedia API for knowledge enrichment
 ├── data/
-│   ├── city_knowledge.py           # Rich knowledge base for 4 cities
-│   └── vector_store.py             # ChromaDB initialization and querying
+│   ├── city_knowledge.py           # Rich knowledge base for Paris, Tokyo, New York
+│   └── vector_store.py             # ChromaDB initialization with category metadata
 ├── models/
 │   └── schemas.py                  # Pydantic models (TravelResponse, WeatherDataPoint)
 ├── utils/
@@ -84,7 +87,8 @@ VEXHALIA/
 ### Prerequisites
 
 - Python 3.10 or higher
-- A free Groq API key (get one at [console.groq.com](https://console.groq.com))
+- A free Google Gemini API key (get one at [aistudio.google.com](https://aistudio.google.com))
+- A free Groq API key for fallback (get one at [console.groq.com](https://console.groq.com))
 
 ### Steps
 
@@ -110,8 +114,10 @@ VEXHALIA/
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` and add your API key:
+   Edit `.env` and add your API keys:
    ```
+   LLM_PROVIDER=gemini
+   GOOGLE_API_KEY=your_gemini_key_here
    GROQ_API_KEY=your_groq_api_key_here
    ```
 
@@ -121,25 +127,20 @@ VEXHALIA/
    ```
    The app will open at `http://localhost:8501`
 
-### Using OpenAI or Anthropic Instead
+### High-Availability LLM Routing (Auto-Fallback)
 
-The project is designed to work with any OpenAI-compatible LLM. To switch providers, update your `.env`:
+The system is configured to use **Google Gemini** as the primary intelligence engine. Because free-tier API keys often hit hourly rate limits during heavy use, the `get_llm()` helper implements a robust fallback strategy using LangChain's `.with_fallbacks([fallback])`.
 
-```env
-LLM_PROVIDER=openai
-OPENAI_API_KEY=sk-your-key-here
-```
-
-The `ChatOpenAI` class from LangChain handles both Groq and OpenAI endpoints — only the base URL and model name change.
+If Gemini throws a rate limit or service error, the system **automatically and seamlessly fails over to Groq (Llama 3.3)** without crashing or exposing errors to the user. This ensures 24/7 availability for the travel assistant.
 
 ## Usage
 
 ### Basic Query
-Type a city name like `Chennai` or `Tell me about Mumbai` and click **Explore**. The agent will:
-- Check if the city is in the knowledge base
-- Fetch a 7-day weather forecast from Open-Meteo
+Type a city name like `Paris` or `Tell me about Tokyo` and click **Explore**. The agent will:
+- Check if the city is in the knowledge base (or fall back to Web + Wikipedia)
+- Fetch a 16-day weather forecast from Open-Meteo
 - Retrieve relevant images
-- Display everything in a structured layout
+- Display everything in a structured layout with conversational AI synthesis
 
 ### Follow-Up Queries (Memory)
 After asking about a city, try a follow-up like `What about next week?`. The agent preserves context — it knows you're still asking about the same city and only re-fetches the weather data without repeating the city summary.
