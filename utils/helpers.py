@@ -13,30 +13,74 @@ from config.settings import settings
 _llm_instance = None
 
 
-def get_llm() -> ChatOpenAI:
-    """Return a configured LLM instance, cached after first creation.
+def _build_groq_fallback():
+    """Build a Groq LLM instance for use as a fallback provider.
 
-    Uses the provider setting from config to decide between Groq (free)
-    and OpenAI (paid). Both use the same ChatOpenAI class since Groq
-    exposes an OpenAI-compatible endpoint — the only difference is the
-    base URL and model name.
+    Groq is free-tier and has generous rate limits, making it an
+    ideal backup when Gemini's per-hour quota is exhausted.
+    """
+    return ChatOpenAI(
+        model=settings.GROQ_MODEL,
+        api_key=settings.GROQ_API_KEY,
+        base_url=settings.GROQ_BASE_URL,
+        temperature=0.7,
+        max_tokens=1024,
+    )
+
+
+def get_llm():
+    """Return a configured LLM instance with automatic fallback.
+
+    Provider priority: Gemini → Groq (automatic failover).
+
+    When Gemini is the primary provider, Groq is chained as a
+    fallback using LangChain's with_fallbacks(). If Gemini hits
+    its rate limit (free tier: limited requests/hour), the system
+    seamlessly switches to Groq without any user-visible error.
+
+    This ensures 24/7 availability even under heavy usage.
     """
     global _llm_instance
     if _llm_instance is not None:
         return _llm_instance
 
     cfg = settings.get_llm_config()
+    provider = cfg.get("provider", "groq")
 
-    kwargs = {
-        "model": cfg["model"],
-        "api_key": cfg["api_key"],
-        "temperature": 0.7,
-        "max_tokens": 1024,
-    }
-    if cfg["base_url"]:
-        kwargs["base_url"] = cfg["base_url"]
+    if provider == "gemini":
+        from langchain_google_genai import ChatGoogleGenerativeAI
 
-    _llm_instance = ChatOpenAI(**kwargs)
+        primary = ChatGoogleGenerativeAI(
+            model=cfg["model"],
+            google_api_key=cfg["api_key"],
+            temperature=0.7,
+            max_output_tokens=2048,
+        )
+        # Chain Groq as automatic fallback for rate-limit resilience
+        if settings.GROQ_API_KEY:
+            fallback = _build_groq_fallback()
+            _llm_instance = primary.with_fallbacks([fallback])
+        else:
+            _llm_instance = primary
+
+    elif provider == "openai":
+        primary = ChatOpenAI(
+            model=cfg["model"],
+            api_key=cfg["api_key"],
+            temperature=0.7,
+            max_tokens=2048,
+        )
+        # Chain Groq as fallback for OpenAI too
+        if settings.GROQ_API_KEY:
+            fallback = _build_groq_fallback()
+            _llm_instance = primary.with_fallbacks([fallback])
+        else:
+            _llm_instance = primary
+
+    else:
+        # Groq is already the cheapest option — no fallback needed
+        _llm_instance = _build_groq_fallback()
+
     return _llm_instance
 
 
@@ -56,7 +100,7 @@ def extract_city_name(user_input: str) -> str:
     This handles common patterns like:
     - "Tell me about Kyoto"
     - "What's Tokyo like?"
-    - "Chennai"  (just the city name)
+    - "Paris"  (just the city name)
     - "I want to visit Mumbai next week"
 
     For ambiguous inputs, we return the cleaned-up input and let the
@@ -98,18 +142,17 @@ def extract_city_name(user_input: str) -> str:
 def is_follow_up_query(user_input: str) -> bool:
     """Detect if the user's message is a follow-up rather than a new query.
 
-    Follow-up indicators:
-    - "what about next week?"
-    - "how about tomorrow?"
-    - "update the weather"
-    - Short messages that reference time but not a new city
-
-    This supports Distinction Challenge #3 (Human-in-the-Loop with memory).
+    Follow-up indicators include time references, activity questions about
+    a previously mentioned city, and weather update requests. This supports
+    Distinction Challenge #3 (Human-in-the-Loop with memory).
     """
     lower = user_input.lower().strip()
     follow_up_signals = [
-        "next week", "this week", "tomorrow", "next month",
+        "next week", "this week", "tomorrow", "next month", "yesterday",
         "what about", "how about", "update", "refresh",
-        "and the weather", "forecast for",
+        "and the weather", "forecast for", "next 7 days", "next 5 days",
+        "will it rain", "will it be", "is it good", "should i",
+        "can i go", "boating", "hiking", "outdoor", "weekend",
+        "previous day", "last week", "today's weather",
     ]
     return any(signal in lower for signal in follow_up_signals)

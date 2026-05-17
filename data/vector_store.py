@@ -5,6 +5,9 @@ On first run, this module creates a persistent ChromaDB collection and
 populates it with the city knowledge chunks. On subsequent runs it
 detects the existing collection and skips re-indexing, so startup is
 fast after the initial embedding pass.
+
+Each document is stored with category metadata (e.g., "food", "weather",
+"attractions") enabling both semantic search and filtered retrieval.
 """
 
 import chromadb
@@ -43,10 +46,16 @@ def initialize_vector_store() -> chromadb.Collection:
 
     # Only populate if the collection is empty (first run)
     if collection.count() == 0:
-        chunks = get_all_chunks()  # list of (city_name, text)
-        documents = [text for _, text in chunks]
-        metadatas = [{"city": city} for city, _ in chunks]
-        ids = [f"{city.lower().replace(' ', '_')}_{i}" for i, (city, _) in enumerate(chunks)]
+        chunks = get_all_chunks()  # list of (city_name, text, category)
+        documents = [text for _, text, _ in chunks]
+        metadatas = [
+            {"city": city, "category": category}
+            for city, _, category in chunks
+        ]
+        ids = [
+            f"{city.lower().replace(' ', '_')}_{category}_{i}"
+            for i, (city, _, category) in enumerate(chunks)
+        ]
 
         collection.add(
             documents=documents,
@@ -61,18 +70,31 @@ def query_vector_store(
     collection: chromadb.Collection,
     query: str,
     top_k: int = 4,
+    category_filter: str | None = None,
 ) -> tuple[list[str], list[dict], list[float]]:
     """Search the vector store for chunks relevant to the query.
 
+    Parameters:
+        collection: The ChromaDB collection to search.
+        query: The search query text.
+        top_k: Number of results to return.
+        category_filter: Optional — only return chunks matching this
+            category (e.g., "food", "weather", "attractions").
+
     Returns:
         documents: The matching text chunks.
-        metadatas: Metadata dicts (each has a 'city' key).
+        metadatas: Metadata dicts (each has 'city' and 'category' keys).
         distances: Cosine distances — lower is more similar.
     """
-    results = collection.query(
-        query_texts=[query],
-        n_results=top_k,
-    )
+    query_params = {
+        "query_texts": [query],
+        "n_results": top_k,
+    }
+
+    if category_filter:
+        query_params["where"] = {"category": category_filter}
+
+    results = collection.query(**query_params)
     documents = results["documents"][0] if results["documents"] else []
     metadatas = results["metadatas"][0] if results["metadatas"] else []
     distances = results["distances"][0] if results["distances"] else []
@@ -102,7 +124,6 @@ def is_city_known(
 
     # Filter results that are actually about this city
     # (the query might return chunks from other cities too)
-    best_distance = distances[0]
     relevant = []
     for doc, meta, dist in zip(documents, metadatas, distances):
         # Cosine distance: 0 = identical, 2 = opposite

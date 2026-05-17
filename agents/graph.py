@@ -151,6 +151,7 @@ def run_travel_query(
     # Build the initial state
     initial_state: AgentState = {
         "messages": [HumanMessage(content=user_input)],
+        "user_input": user_input,
         "city_name": city_name,
         "city_summary": existing_state.get("city_summary", "") if existing_state and is_follow_up else "",
         "weather_forecast": [],

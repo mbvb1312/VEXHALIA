@@ -22,6 +22,7 @@ class AgentState(TypedDict):
     Attributes:
         messages: Chat message history (LLM + tool messages).
                   Uses add_messages reducer for automatic merging.
+        user_input: The raw text the user typed (for conversational prompts).
         city_name: The city the user asked about (extracted from input).
         city_summary: Synthesized text about the city.
         weather_forecast: List of daily forecast data points.
@@ -34,6 +35,7 @@ class AgentState(TypedDict):
     """
 
     messages: Annotated[list[BaseMessage], add_messages]
+    user_input: str
     city_name: str
     city_summary: str
     weather_forecast: list[dict]

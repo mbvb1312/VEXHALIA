@@ -1,282 +1,260 @@
 """
-Pre-populated knowledge base for four cities across India and the USA.
+Pre-populated knowledge base for three cities: Paris, Tokyo, New York.
 
-This data seeds the ChromaDB vector store so the agent can answer
-questions about Chennai, Mumbai, New Jersey, and New York without
-hitting the web. Each city's text is broken into thematic chunks that
-embed well — shorter, focused paragraphs retrieve more accurately than
-one giant wall of text.
+These cities match the assignment document's examples. Each city's text
+is split into fine-grained, topic-specific chunks (100–300 words each)
+with category metadata. This "granularity" approach ensures that
+semantic retrieval returns precisely relevant passages — e.g., a query
+about "Tokyo food" retrieves the food chunk, not the transport chunk.
 
 For any city NOT in this list, the agent's router automatically
-switches to a live DuckDuckGo web search, so there is no geographic
-bias — users from any country will get results.
+switches to a live DuckDuckGo web search, so the system handles
+any destination worldwide (e.g., Snohomish, Kyoto, Chennai).
 """
 
-# Each entry maps a city name to a list of text chunks.
-# Chunks are kept under ~200 words so the embedding model
-# can capture the semantic focus of each paragraph.
+# Each entry maps a city name to a list of (text, category) tuples.
+# The category metadata enables filtered retrieval and makes the
+# vector store significantly more useful for targeted queries.
 
-CITY_KNOWLEDGE: dict[str, list[str]] = {
-    "Chennai": [
+CITY_KNOWLEDGE: dict[str, list[tuple[str, str]]] = {
+    "Paris": [
         (
-            "Chennai, formerly known as Madras, is the capital city of Tamil "
-            "Nadu and the largest cultural, economic, and educational hub in "
-            "South India. Situated on the Coromandel Coast along the Bay of "
-            "Bengal, the city has a population of roughly 7.1 million in the "
-            "urban area and over 11 million in the greater metropolitan region. "
-            "It is one of the oldest modern cities in the Indian subcontinent, "
-            "with a history stretching back to the founding of Fort St. George "
-            "by the British East India Company in 1644."
+            "Paris is the capital city of France and one of the most visited "
+            "tourist destinations in the world. The city is known for its "
+            "historic architecture, museums, art galleries, luxury shopping, "
+            "cafés, and cultural landmarks. The Seine River flows through the "
+            "center of Paris and divides the city into the Left Bank and Right "
+            "Bank. With a population of approximately 2.1 million in the city "
+            "proper and over 12 million in the metropolitan area, Paris is the "
+            "economic, cultural, and political heart of France. The city has "
+            "been a center of art, science, and philosophy since the Middle Ages.",
+            "overview",
         ),
         (
-            "Marina Beach stretches for 13 kilometers along the Bay of Bengal "
-            "and is one of the longest urban beaches in the world. At sunrise "
-            "and sunset the beach comes alive with families, street food "
-            "vendors selling sundal and murukku, and cricket matches on the "
-            "sand. The Kapaleeshwarar Temple in Mylapore, built in the 7th "
-            "century Dravidian architectural style, is dedicated to Lord Shiva "
-            "and features an ornate gopuram tower covered in colorful "
-            "sculptures. The San Thome Basilica, believed to be built over the "
-            "tomb of the apostle St. Thomas, is one of only three churches in "
-            "the world built over the tomb of an apostle."
+            "Major tourist attractions in Paris include the Eiffel Tower, "
+            "Louvre Museum, Notre-Dame Cathedral, Arc de Triomphe, "
+            "Champs-Élysées, Sacré-Cœur Basilica, and the Palace of "
+            "Versailles nearby. The Eiffel Tower is especially popular for "
+            "panoramic city views during sunset and nighttime — it sparkles "
+            "with 20,000 light bulbs every hour after dark. The Louvre is the "
+            "world's largest art museum and home to the Mona Lisa. The "
+            "Musée d'Orsay houses an extraordinary collection of Impressionist "
+            "and Post-Impressionist masterpieces by Monet, Renoir, and Van Gogh.",
+            "attractions",
         ),
         (
-            "Chennai is widely regarded as the gateway to South Indian "
-            "cuisine. Filter coffee, served in a stainless steel tumbler and "
-            "davara, is a morning ritual across the city. Idli, dosa, vada, "
-            "and sambar form the backbone of breakfast menus, while lunch "
-            "often means a traditional banana-leaf meal with rice, rasam, "
-            "kootu, poriyal, and payasam. The city's Chettinad restaurants "
-            "serve fiery chicken and mutton dishes seasoned with freshly "
-            "ground spice blends. Street food hubs like Sowcarpet and "
-            "Mylapore offer everything from pani puri to kothu parotta at "
-            "incredibly affordable prices."
+            "Paris is famous for French cuisine including croissants, "
+            "baguettes, macarons, escargot, crêpes, cheese, and fine dining "
+            "restaurants. Popular café culture is an important part of Parisian "
+            "life — sitting at a sidewalk café watching the world go by is a "
+            "quintessential Parisian experience. Travelers often visit local "
+            "bakeries (boulangeries) and riverside cafés. The Marais district "
+            "and Saint-Germain-des-Prés are known for exceptional bistros. "
+            "Paris holds more Michelin-starred restaurants than any other city "
+            "in the world. Street food favorites include crêpes from stands "
+            "near the Seine and falafel in Le Marais.",
+            "food",
         ),
         (
-            "The Chennai Metro and MRTS suburban railway connect key parts "
-            "of the city, complementing the extensive bus network run by MTC. "
-            "Auto-rickshaws, now increasingly app-metered, remain a popular "
-            "last-mile transport option. The city is also the automobile "
-            "capital of India, often called the 'Detroit of Asia,' with "
-            "major manufacturing plants for Hyundai, BMW, Ford, and others. "
-            "Chennai International Airport at Tirusulam handles both domestic "
-            "and international flights, with direct connections to Singapore, "
-            "Dubai, London, and several Southeast Asian cities."
+            "Paris experiences mild winters and warm summers. Average "
+            "temperatures range from 3°C in January to 25°C in July. "
+            "Spring (April–June) and autumn (September–November) are "
+            "considered ideal seasons for tourism because of comfortable "
+            "temperatures and fewer crowds. Rainfall is possible throughout "
+            "the year — Paris receives approximately 640 mm annually — so "
+            "travelers often carry umbrellas. Summer can occasionally bring "
+            "heat waves exceeding 35°C. Winter days are short but the city's "
+            "Christmas markets and holiday lights create a magical atmosphere.",
+            "weather",
         ),
         (
-            "The best time to visit Chennai is from November to February when "
-            "temperatures range from 20 to 30 degrees Celsius and the humidity "
-            "is lower. Summer months from April to June are extremely hot with "
-            "temperatures often exceeding 40 degrees Celsius. The northeast "
-            "monsoon season, from October to December, brings heavy rainfall "
-            "that can occasionally cause urban flooding. Despite the heat, "
-            "Chennai's cultural calendar is vibrant year-round, highlighted by "
-            "the six-week Margazhi music and dance festival from December to "
-            "January, which draws classical artists from across the world."
+            "Public transportation in Paris includes the Paris Métro (16 lines, "
+            "300+ stations), buses, regional RER trains, and trams. The Métro "
+            "system is one of the fastest and most affordable ways to travel "
+            "across the city — a single ticket costs €2.15. Charles de Gaulle "
+            "Airport (CDG) is the primary international airport serving Paris, "
+            "located 25 km northeast. Orly Airport handles many European and "
+            "domestic flights. The Gare du Nord train station connects Paris "
+            "to London (Eurostar), Brussels, and Amsterdam by high-speed rail.",
+            "transportation",
         ),
         (
-            "Chennai has a thriving IT corridor in areas like Sholinganallur, "
-            "OMR (Old Mahabalipuram Road), and Taramani, housing offices of "
-            "TCS, Infosys, Cognizant, and numerous startups. The city is also "
-            "a center for the Tamil film industry (Kollywood), producing over "
-            "200 films annually. The Government Museum in Egmore, one of the "
-            "oldest in India, has an extensive collection of archaeological "
-            "artifacts, bronze sculptures, and botanical specimens."
-        ),
-    ],
-    "Mumbai": [
-        (
-            "Mumbai, formerly Bombay, is the capital of Maharashtra and the "
-            "financial capital of India. Built across seven islands on the "
-            "western coast, it is the most populous city in India with over "
-            "20 million residents in the metropolitan region. The city serves "
-            "as headquarters for the Reserve Bank of India, the Bombay Stock "
-            "Exchange (Asia's oldest), and the Securities and Exchange Board. "
-            "It generates approximately 6.16 percent of India's total GDP."
-        ),
-        (
-            "The Gateway of India, an Indo-Saracenic arch monument built in "
-            "1924 to commemorate King George V's visit, stands at the tip of "
-            "Apollo Bunder and overlooks Mumbai Harbour. From here, ferries "
-            "depart to Elephanta Island, whose 5th-century cave temples house "
-            "remarkable Shiva sculptures and are a UNESCO World Heritage Site. "
-            "The Chhatrapati Shivaji Maharaj Terminus (formerly Victoria "
-            "Terminus), another UNESCO site, is an extraordinary example of "
-            "Victorian Gothic Revival architecture blended with traditional "
-            "Indian elements."
-        ),
-        (
-            "Mumbai street food is legendary and forms the backbone of the "
-            "city's culinary identity. Vada pav — a spiced potato fritter in "
-            "a bun with chutneys — is the quintessential Mumbai snack, sold "
-            "by thousands of vendors for as little as 20 rupees. Pav bhaji, "
-            "bhel puri, sev puri, and pani puri line the stalls at Chowpatty "
-            "Beach and Juhu Beach. For sit-down meals, the city offers "
-            "everything from Parsi cafés serving dhansak and berry pulao to "
-            "Mughlai restaurants in Mohammed Ali Road known for seekh kebabs "
-            "and malpua during Ramadan."
-        ),
-        (
-            "Mumbai's local train network, often called the lifeline of the "
-            "city, carries over 7.5 million passengers daily across three "
-            "main lines: Western, Central, and Harbour. The trains run from "
-            "roughly 4 AM to 1 AM and a monthly pass costs around 200-300 "
-            "rupees. The Mumbai Metro has been expanding rapidly with new "
-            "lines reducing congestion. Black-and-yellow taxis and auto-"
-            "rickshaws (in the suburbs) complement the public transit, "
-            "alongside ride-hailing apps like Ola and Uber."
-        ),
-        (
-            "The best time to visit Mumbai is from October to March when "
-            "temperatures stay between 20 and 33 degrees Celsius with low "
-            "humidity. The monsoon season from June to September brings "
-            "intense rainfall — the city averages about 2,400 mm annually — "
-            "which can disrupt transportation but also transforms the "
-            "surrounding Western Ghats into lush green landscapes. If you "
-            "do not mind the rain, monsoon Mumbai has its own dramatic charm."
-        ),
-        (
-            "Bollywood, the Hindi film industry based in Mumbai's Film City "
-            "complex in Goregaon, produces over 1,500 films annually, making "
-            "it the largest film industry in the world by output. The city's "
-            "nightlife centers around Bandra, Lower Parel, and Colaba, with "
-            "rooftop bars, live music venues, and clubs that stay open past "
-            "midnight. Marine Drive, the 3.6-kilometer-long boulevard along "
-            "the coast, is nicknamed the 'Queen's Necklace' for its curved "
-            "line of streetlights that glow at night."
+            "Popular activities in Paris include Seine River cruises, museum "
+            "visits, café hopping, luxury shopping on the Champs-Élysées and "
+            "Rue du Faubourg Saint-Honoré, photography tours, art exploration, "
+            "and guided walking tours through Montmartre. Nighttime river "
+            "cruises (Bateaux Mouches) are especially popular among tourists "
+            "for seeing illuminated landmarks. Outdoor activities include "
+            "picnicking in the Luxembourg Gardens or Tuileries Garden, cycling "
+            "along the Seine, and exploring the flea markets at Saint-Ouen. "
+            "Paris is also an excellent base for day trips to Versailles, "
+            "Giverny (Monet's gardens), and the Loire Valley châteaux.",
+            "activities",
         ),
     ],
-    "New Jersey": [
+    "Tokyo": [
         (
-            "New Jersey is a state in the Mid-Atlantic region of the United "
-            "States, bordered by New York to the north, the Atlantic Ocean to "
-            "the east, and Pennsylvania and Delaware to the west and south. "
-            "Despite being the fourth-smallest state by area, it is the most "
-            "densely populated state in the country with around 9.3 million "
-            "residents. Its proximity to both New York City and Philadelphia "
-            "makes it a major commuter hub, earning the nickname 'The Garden "
-            "State' for its farms, forests, and shore communities."
+            "Tokyo is the capital city of Japan and one of the largest "
+            "metropolitan areas in the world with a population exceeding "
+            "37 million in the greater metropolitan region. The city combines "
+            "advanced technology, modern skyscrapers, anime culture, "
+            "traditional temples, and highly efficient transportation systems. "
+            "Tokyo served as the host city for the 2020 Summer Olympics. "
+            "The city is divided into 23 special wards, each functioning as "
+            "an individual city, along with several suburban cities and towns.",
+            "overview",
         ),
         (
-            "The Jersey Shore stretches 130 miles along the Atlantic Coast "
-            "and includes famous beach towns like Atlantic City, Cape May, "
-            "Asbury Park, and Point Pleasant. Atlantic City's Boardwalk, "
-            "built in 1870 as the world's first boardwalk, features casinos, "
-            "amusement rides, and saltwater taffy shops. Cape May, at the "
-            "state's southern tip, is a National Historic Landmark with "
-            "over 600 beautifully preserved Victorian-era buildings and "
-            "is known for excellent bird watching and whale-watching tours."
+            "Major attractions in Tokyo include Tokyo Tower, Senso-ji Temple "
+            "in Asakusa (the oldest temple in Tokyo, founded in 645 AD), "
+            "Shibuya Crossing (the world's busiest pedestrian intersection), "
+            "Tokyo Skytree (634 meters tall), Meiji Shrine surrounded by a "
+            "vast forest, Akihabara electronics district, and the Imperial "
+            "Palace. Akihabara is especially known for anime, manga, gaming, "
+            "and electronics culture. The Tsukiji Outer Market remains a "
+            "vibrant food destination despite the inner market's move to "
+            "Toyosu. Odaiba is a futuristic waterfront area with shopping, "
+            "entertainment, and the life-size Gundam statue.",
+            "attractions",
         ),
         (
-            "New Jersey offers remarkable culinary diversity thanks to its "
-            "position as a melting pot of cultures. The state claims to have "
-            "the best pizza and bagels outside of New York City — a fiercely "
-            "debated but widely held local belief. Diners are a cultural "
-            "institution here; New Jersey has more diners per capita than "
-            "any other state, serving classic American comfort food 24 hours "
-            "a day. The state is also home to significant Indian, Korean, "
-            "and Latin American food communities, particularly along the "
-            "Oak Tree Road corridor in Edison and Iselin."
+            "Tokyo is internationally known for sushi, ramen, tempura, "
+            "yakitori, udon, tonkatsu, and street food. Tsukiji Outer Market "
+            "and Toyosu Market are famous for the freshest seafood in the "
+            "world. Convenience stores (konbini) like 7-Eleven, Lawson, and "
+            "FamilyMart are known for surprisingly high-quality ready-to-eat "
+            "meals, onigiri, and bento boxes. Tokyo has more Michelin-starred "
+            "restaurants than any other city on Earth. Ramen alleys in "
+            "Shinjuku and Ikebukuro offer dozens of specialized ramen shops. "
+            "Themed cafés — including cat cafés, owl cafés, and robot "
+            "restaurants — are uniquely Tokyo experiences.",
+            "food",
         ),
         (
-            "NJ Transit operates an extensive bus and commuter rail network "
-            "that connects cities and suburbs across the state to New York "
-            "Penn Station and Hoboken Terminal. The PATH train links Newark, "
-            "Hoboken, and Jersey City directly to Manhattan. Newark Liberty "
-            "International Airport is one of the busiest airports on the "
-            "East Coast, serving as a major United Airlines hub. The New "
-            "Jersey Turnpike and Garden State Parkway are the state's main "
-            "highway arteries."
+            "Tokyo has one of the most advanced public transportation systems "
+            "in the world. The city relies heavily on trains (JR lines), "
+            "subways (Tokyo Metro and Toei lines), and bullet trains known as "
+            "Shinkansen that can reach speeds of 320 km/h. Tokyo Station and "
+            "Shinjuku Station (the world's busiest station with 3.5 million "
+            "daily passengers) are major transport hubs. A Suica or Pasmo IC "
+            "card is essential for seamless travel. Narita International "
+            "Airport (60 km from city center) and Haneda Airport (closer, "
+            "more convenient) serve international flights.",
+            "transportation",
         ),
         (
-            "The best time to visit New Jersey is from May to October when "
-            "temperatures are warm enough for beach activities, typically "
-            "ranging from 18 to 30 degrees Celsius. Autumn (September through "
-            "November) is particularly stunning in the northwestern highlands "
-            "with vibrant fall foliage. Winters can be cold, with temperatures "
-            "dropping below freezing and snowfall common from December through "
-            "March, especially in the northern counties."
+            "Tokyo experiences hot and humid summers with temperatures often "
+            "exceeding 35°C and mild winters averaging 5–10°C. Cherry blossom "
+            "(sakura) season during late March to mid-April is one of the most "
+            "popular tourist periods — parks like Ueno, Shinjuku Gyoen, and "
+            "Meguro River are famous viewing spots. The rainy season (tsuyu) "
+            "runs from mid-June to mid-July. Typhoons can occasionally affect "
+            "the city during late summer and autumn (August–October). Autumn "
+            "foliage in November is stunning at temples and gardens.",
+            "weather",
         ),
         (
-            "Princeton University, one of the world's most prestigious "
-            "institutions, is located in the town of Princeton and its campus "
-            "is open for guided walking tours. Liberty State Park in Jersey "
-            "City provides spectacular views of the Statue of Liberty and the "
-            "Manhattan skyline across the Hudson River. The Thomas Edison "
-            "National Historical Park in West Orange preserves the laboratory "
-            "and estate of America's most prolific inventor."
+            "Popular activities in Tokyo include anime and manga shopping in "
+            "Akihabara, visiting arcades and game centers, themed cafés, "
+            "temple visits and shrine ceremonies, nightlife exploration in "
+            "Shinjuku's Golden Gai and Kabukichō, cherry blossom viewing "
+            "(hanami), experiencing Japanese technology and robotics "
+            "exhibitions at teamLab and Miraikan, and relaxing in traditional "
+            "onsen (hot spring) baths. Day trips from Tokyo include Mount Fuji, "
+            "Kamakura (Great Buddha), Nikko, and Hakone. Shopping districts "
+            "include Ginza (luxury), Harajuku (youth fashion), and Shimokitazawa "
+            "(vintage).",
+            "activities",
         ),
     ],
     "New York": [
         (
-            "New York City is the most populous city in the United States, "
-            "with approximately 8.3 million residents spread across five "
-            "boroughs: Manhattan, Brooklyn, Queens, the Bronx, and Staten "
-            "Island. Situated at the mouth of the Hudson River on the "
-            "Atlantic coast, it serves as a global nexus of finance, media, "
-            "art, fashion, and technology. The city's iconic skyline, shaped "
-            "by over 7,000 high-rise buildings, is recognizable worldwide."
+            "New York City is the largest city in the United States with "
+            "approximately 8.3 million residents and a major global center "
+            "for finance, entertainment, media, art, fashion, and technology. "
+            "The city consists of five boroughs: Manhattan, Brooklyn, Queens, "
+            "The Bronx, and Staten Island. Situated at the mouth of the "
+            "Hudson River on the Atlantic coast, its iconic skyline shaped by "
+            "over 7,000 high-rise buildings is recognizable worldwide. New York "
+            "is often called 'The City That Never Sleeps' because of its "
+            "24-hour culture of dining, entertainment, and transportation.",
+            "overview",
         ),
         (
-            "The Statue of Liberty, a gift from France dedicated in 1886, "
-            "stands on Liberty Island in New York Harbor and has welcomed "
-            "millions of immigrants arriving by sea. Central Park, designed "
-            "by Frederick Law Olmsted and Calvert Vaux, spans 843 acres of "
-            "Manhattan and receives roughly 42 million visitors annually, "
-            "making it the most-visited urban park in the United States. "
-            "The park contains lakes, woodlands, a zoo, ice-skating rinks, "
-            "and the Bethesda Terrace fountain."
+            "Major attractions in New York City include Times Square (drawing "
+            "50 million visitors annually), Central Park (843 acres of green "
+            "space in Manhattan), the Statue of Liberty on Liberty Island, "
+            "Empire State Building, Brooklyn Bridge, Broadway theater district "
+            "(40+ professional theaters), Wall Street and the Financial "
+            "District, the Metropolitan Museum of Art (The Met), the Museum "
+            "of Modern Art (MoMA), and the 9/11 Memorial and Museum. The "
+            "High Line, an elevated park built on a former railway, offers "
+            "unique views of the city's west side.",
+            "attractions",
         ),
         (
-            "Times Square, dubbed 'The Crossroads of the World,' is a major "
-            "commercial and entertainment hub in Midtown Manhattan. Its "
-            "massive illuminated billboards and Broadway theater marquees "
-            "draw an estimated 50 million visitors each year. The Broadway "
-            "theater district hosts around 40 professional theaters staging "
-            "musicals, dramas, and revivals. Iconic shows include The Phantom "
-            "of the Opera, Hamilton, and The Lion King."
-        ),
-        (
-            "New York's food scene reflects its extraordinary diversity. "
-            "Classic New York foods include thin-crust pizza (folded for "
+            "New York City is famous for its thin-crust pizza (folded for "
             "eating on the go), bagels with lox and cream cheese, pastrami "
-            "on rye from delis like Katz's, and cheesecake from Junior's in "
-            "Brooklyn. The city hosts over 27,000 restaurants representing "
-            "virtually every cuisine on earth — from dim sum in Flushing's "
-            "Chinatown to Ethiopian injera in Harlem to Neapolitan pizza in "
-            "the West Village."
+            "on rye from delis like Katz's, cheesecake from Junior's in "
+            "Brooklyn, and hot dogs from street carts. The city hosts over "
+            "27,000 restaurants representing virtually every cuisine on earth "
+            "— from dim sum in Flushing's Chinatown to Ethiopian injera in "
+            "Harlem to Neapolitan pizza in the West Village. Food trucks and "
+            "street vendors selling halal platters, pretzels, and roasted "
+            "nuts are iconic parts of the New York street scene.",
+            "food",
         ),
         (
-            "The New York City Subway operates 24 hours a day, 7 days a "
-            "week, across 472 stations — more than any other system in the "
-            "world. A single MetroCard swipe costs $2.90 and provides "
-            "unlimited transfers within two hours. The system carries roughly "
-            "3.5 million riders on an average weekday. Yellow taxis are "
-            "ubiquitous in Manhattan, while ride-share services and the Citi "
-            "Bike program provide additional transit options."
+            "The New York City Subway operates 24 hours a day, 7 days a week, "
+            "across 472 stations — more than any other system in the world. "
+            "A single ride costs $2.90 with unlimited transfers within two "
+            "hours. The system carries roughly 3.5 million riders on an "
+            "average weekday. Yellow taxis are ubiquitous in Manhattan, while "
+            "ride-share services (Uber, Lyft) and the Citi Bike program "
+            "provide additional transit options. JFK International Airport, "
+            "LaGuardia Airport, and Newark Liberty Airport serve the "
+            "metropolitan area.",
+            "transportation",
         ),
         (
-            "The best time to visit New York is from April to June and "
-            "September to early November. Spring brings cherry blossoms in "
-            "Central Park and mild temperatures around 15 to 22 degrees "
-            "Celsius. Autumn offers spectacular foliage and comfortable "
-            "weather. Summer (July-August) can be uncomfortably hot and "
-            "humid, regularly exceeding 32 degrees Celsius, while winter "
-            "brings cold temperatures, occasional snowstorms, and the "
-            "magical holiday season with the Rockefeller Center Christmas "
-            "tree and window displays along Fifth Avenue."
+            "New York City experiences cold winters with temperatures often "
+            "dropping below freezing (average January high: 3°C) and warm, "
+            "humid summers (average July high: 30°C). Snowfall is common "
+            "from December through March. Spring (April–June) and autumn "
+            "(September–November) are considered the most pleasant seasons "
+            "for tourism and outdoor activities, with temperatures between "
+            "15–25°C. Summer can be uncomfortable with heat and humidity. "
+            "The holiday season (November–January) brings magical Christmas "
+            "decorations, the Rockefeller Center tree, and ice skating rinks.",
+            "weather",
+        ),
+        (
+            "Popular activities in New York City include Broadway shows and "
+            "musicals, rooftop dining with skyline views, museum visits (The "
+            "Met, MoMA, Guggenheim, American Museum of Natural History), "
+            "shopping in Manhattan (Fifth Avenue, SoHo), walking through "
+            "Central Park, ferry rides to the Statue of Liberty and Ellis "
+            "Island, nightlife in the Meatpacking District and Williamsburg, "
+            "and attending sports events at Madison Square Garden and Yankee "
+            "Stadium. Free activities include walking the Brooklyn Bridge, "
+            "the Staten Island Ferry, and exploring neighborhood street art.",
+            "activities",
         ),
     ],
 }
 
 
-def get_all_chunks() -> list[tuple[str, str]]:
-    """Return every chunk as (city_name, text) pairs for embedding."""
-    pairs = []
+def get_all_chunks() -> list[tuple[str, str, str]]:
+    """Return every chunk as (city_name, text, category) triples for embedding.
+
+    The category metadata is stored alongside each document in ChromaDB
+    to enable filtered retrieval (e.g., only retrieve 'food' chunks).
+    """
+    triples = []
     for city, chunks in CITY_KNOWLEDGE.items():
-        for chunk in chunks:
-            pairs.append((city, chunk))
-    return pairs
+        for text, category in chunks:
+            triples.append((city, text, category))
+    return triples
 
 
 def get_city_names() -> list[str]:

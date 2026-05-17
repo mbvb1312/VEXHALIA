@@ -40,14 +40,14 @@ st.markdown("""
     /* Root variables */
     :root {
         --primary: #7c3aed;
-        --primary-soft: rgba(124, 58, 237, 0.15);
+        --primary-glow: rgba(124, 58, 237, 0.25);
         --accent: #f43f5e;
-        --bg-dark: #0f172a;
-        --bg-card: rgba(30, 41, 59, 0.7);
-        --bg-glass: rgba(255, 255, 255, 0.03);
+        --bg-dark: #0a0f1a;
+        --bg-card: rgba(30, 41, 59, 0.65);
+        --bg-glass: rgba(255, 255, 255, 0.04);
         --text-primary: #f1f5f9;
         --text-secondary: #94a3b8;
-        --border-subtle: rgba(148, 163, 184, 0.12);
+        --border-subtle: rgba(148, 163, 184, 0.10);
         --success: #10b981;
         --info: #3b82f6;
     }
@@ -72,7 +72,7 @@ st.markdown("""
 
     /* Sidebar */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+        background: linear-gradient(180deg, #0a0f1a 0%, #151d2e 100%);
     }
     [data-testid="stSidebar"] .stMarkdown {
         color: var(--text-secondary);
@@ -81,18 +81,28 @@ st.markdown("""
     /* ---- Chat messages ---- */
     [data-testid="stChatMessage"] {
         border-radius: 16px;
-        margin-bottom: 1rem;
+        margin-bottom: 1.2rem;
         border: 1px solid var(--border-subtle);
-        backdrop-filter: blur(10px);
+        backdrop-filter: blur(12px);
+        transition: box-shadow 0.3s ease;
+    }
+    [data-testid="stChatMessage"]:hover {
+        box-shadow: 0 4px 24px rgba(124, 58, 237, 0.08);
     }
 
     /* ---- Chat input ---- */
     [data-testid="stChatInput"] {
         border-top: 1px solid var(--border-subtle);
+        background: var(--bg-dark);
     }
     [data-testid="stChatInput"] textarea {
         font-size: 1rem;
-        border-radius: 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(124, 58, 237, 0.3) !important;
+    }
+    [data-testid="stChatInput"] textarea:focus {
+        border-color: var(--primary) !important;
+        box-shadow: 0 0 0 2px var(--primary-glow) !important;
     }
 
     /* ---- Source badge styling ---- */
@@ -146,20 +156,32 @@ st.markdown("""
     /* ---- Header branding ---- */
     .vex-header {
         text-align: center;
-        padding: 2rem 0 1rem 0;
+        padding: 3rem 0 1.5rem 0;
     }
     .vex-header h1 {
-        font-size: 2.2rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #7c3aed, #3b82f6, #06b6d4);
+        font-size: 2.8rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 40%, #06b6d4 70%, #10b981 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         margin: 0;
+        letter-spacing: -0.02em;
     }
     .vex-header p {
         color: var(--text-secondary);
-        font-size: 0.95rem;
-        margin-top: 0.3rem;
+        font-size: 1rem;
+        margin-top: 0.5rem;
+        letter-spacing: 0.02em;
+    }
+    .vex-header .vex-subtitle {
+        display: inline-block;
+        margin-top: 0.8rem;
+        padding: 4px 16px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        background: rgba(124, 58, 237, 0.12);
+        color: #a78bfa;
+        border: 1px solid rgba(124, 58, 237, 0.25);
     }
 
     /* Plotly chart container */
@@ -192,8 +214,14 @@ if "last_city" not in st.session_state:
 with st.sidebar:
     st.markdown("### ⚙️ Configuration")
     llm_cfg = settings.get_llm_config()
-    provider_name = "Groq (Llama 3.3 70B)" if settings.LLM_PROVIDER == "groq" else "OpenAI (GPT-4o)"
-    st.info(f"**LLM:** {provider_name}")
+    provider = llm_cfg.get("provider", "groq")
+    provider_names = {
+        "gemini": f"✨ Google Gemini ({settings.GEMINI_MODEL})",
+        "openai": f"🧠 OpenAI ({settings.OPENAI_MODEL})",
+        "groq": f"⚡ Groq ({settings.GROQ_MODEL})",
+    }
+    st.info(f"**LLM:** {provider_names.get(provider, provider)}")
+    st.caption(f"📅 Weather forecast: {settings.FORECAST_DAYS} days")
 
     warnings = settings.validate()
     if warnings:
@@ -202,10 +230,10 @@ with st.sidebar:
 
     st.markdown("---")
 
-    st.markdown("### 🏙️ Pre-loaded Cities")
+    st.markdown("### 🏙️ Vector Store Cities")
     st.caption(
-        "Chennai · Mumbai · New Jersey · New York\n\n"
-        "Other cities are searched via the web."
+        "🗼 Paris · 🗾 Tokyo · 🗽 New York\n\n"
+        "Other cities are searched live via\nDuckDuckGo + Wikipedia."
     )
 
     st.markdown("---")
@@ -218,8 +246,8 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption(
-        "Built with LangGraph, Streamlit, and Groq.\n"
-        "Compatible with OpenAI GPT-4o & Claude 3.5 Sonnet."
+        "Built with LangGraph, Streamlit & Gemini.\n"
+        "Compatible with OpenAI GPT-4o & Groq."
     )
 
 
@@ -231,7 +259,8 @@ if not st.session_state.chat_history:
     st.markdown("""
     <div class="vex-header">
         <h1>🌍 VEXHALIA</h1>
-        <p>Multi-Modal Agentic Travel Intelligence — ask about any city</p>
+        <p>Multi-Modal Agentic Travel Intelligence — ask about any city on Earth</p>
+        <span class="vex-subtitle">Powered by Google Gemini · LangGraph · ChromaDB · Wikipedia</span>
     </div>
     """, unsafe_allow_html=True)
 
@@ -239,7 +268,7 @@ if not st.session_state.chat_history:
 
     # Suggestion chips
     cols = st.columns(4)
-    suggestions = ["Tell me about Chennai", "Explore New York", "Mumbai travel guide", "What's Kyoto like?"]
+    suggestions = ["Tell me about Paris", "Explore Tokyo", "New York travel guide", "What's Snohomish like?"]
     for col, suggestion in zip(cols, suggestions):
         with col:
             if st.button(suggestion, key=f"sug_{suggestion}", use_container_width=True):
@@ -311,8 +340,14 @@ def build_weather_chart(weather_data: list[dict]) -> go.Figure:
 # Helper: Render a single assistant response
 # ============================================================
 
-def render_assistant_response(result: dict):
-    """Render the full multi-modal response inside a chat message."""
+def render_assistant_response(result: dict, msg_idx: int = 0):
+    """Render the full multi-modal response inside a chat message.
+
+    Parameters:
+        result: The structured response dict from the agent.
+        msg_idx: Unique index for this message (used to generate
+                 unique Streamlit widget keys and avoid collisions).
+    """
     city = result.get("city_name", "Unknown")
     summary = result.get("city_summary", "")
     weather = result.get("weather_forecast", [])
@@ -352,7 +387,7 @@ def render_assistant_response(result: dict):
             if weather:
                 st.markdown("#### 🌤️ Weather Forecast")
                 fig = build_weather_chart(weather)
-                st.plotly_chart(fig, use_container_width=True, key=f"chart_{city}_{len(st.session_state.chat_history)}")
+                st.plotly_chart(fig, use_container_width=True, key=f"chart_{city}_{msg_idx}")
 
             # Image gallery
             display_images = images if images else [{"url": u, "caption": ""} for u in image_urls]
@@ -398,13 +433,13 @@ def render_assistant_response(result: dict):
 # Render Chat History
 # ============================================================
 
-for entry in st.session_state.chat_history:
+for msg_idx, entry in enumerate(st.session_state.chat_history):
     if entry["role"] == "user":
         with st.chat_message("user"):
             st.markdown(entry["content"])
     else:
         with st.chat_message("assistant", avatar="🌍"):
-            render_assistant_response(entry["result"])
+            render_assistant_response(entry["result"], msg_idx=msg_idx)
 
 
 # ============================================================
@@ -413,7 +448,7 @@ for entry in st.session_state.chat_history:
 
 # Check for pending query from suggestion buttons
 pending = st.session_state.pop("pending_query", None)
-prompt = st.chat_input("Ask about any city — e.g. 'Tell me about Chennai' or 'What about next week?'")
+prompt = st.chat_input("Ask about any city — e.g. 'Tell me about Paris' or 'What about next week?'")
 
 # Use whichever input source is available
 user_input = pending or prompt
@@ -469,7 +504,29 @@ if user_input:
                         "result": result,
                     })
 
-                    render_assistant_response(result)
+                    render_assistant_response(
+                        result,
+                        msg_idx=len(st.session_state.chat_history) - 1,
+                    )
+
+                    # Follow-up suggestion chips
+                    st.markdown("---")
+                    st.caption("💡 Try asking:")
+                    follow_cols = st.columns(3)
+                    follow_suggestions = [
+                        "What about next week?",
+                        f"Best restaurants in {city_name}?",
+                        f"Is it good for outdoor activities?",
+                    ]
+                    for fc, fs in zip(follow_cols, follow_suggestions):
+                        with fc:
+                            if st.button(
+                                fs,
+                                key=f"follow_{fs}_{len(st.session_state.chat_history)}",
+                                use_container_width=True,
+                            ):
+                                st.session_state.pending_query = fs
+                                st.rerun()
 
                 except Exception as e:
                     st.error(f"Something went wrong: {str(e)}")
