@@ -1,3 +1,13 @@
+---
+title: VEXHALIA
+emoji: 🌍
+colorFrom: purple
+colorTo: blue
+sdk: docker
+app_file: app.py
+pinned: false
+---
+
 # VEXHALIA — Multi-Modal Agentic Travel Intelligence System
 
 <div align="center">
