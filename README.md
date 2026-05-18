@@ -35,6 +35,12 @@
 
 The agent is built as a **LangGraph StateGraph** with conditional routing, parallel execution, and conversation memory:
 
+### System Architecture
+
+![System Architecture](architecture.png)
+
+### LangGraph Topology
+
 ![LangGraph Topology](graph.png)
 
 ### How It Works
@@ -228,36 +234,39 @@ Implemented via `MemorySaver` checkpointer in [`agents/graph.py`](agents/graph.p
 
 ---
 
-## ☁️ Deployment (Streamlit Community Cloud)
-
-Since this is a Streamlit application, the easiest way to deploy it for free with **zero code changes** is using Streamlit Community Cloud.
+## ☁️ Deployment (Hugging Face Spaces)
 
 ### Step-by-Step Deployment
 
-1. **Create an account** at [share.streamlit.io](https://share.streamlit.io/) (you can log in with your GitHub account).
+1. **Create a Hugging Face account** at [huggingface.co](https://huggingface.co)
 
-2. **Create a new app**:
-   - Click the **"Create app"** button (top right).
-   - Select **"Yep, I have an app"**.
+2. **Create a new Space**
+   - Go to [huggingface.co/new-space](https://huggingface.co/new-space)
+   - Name: `VEXHALIA`
+   - SDK: **Streamlit**
+   - Visibility: **Public**
 
-3. **Configure the app**:
-   - **Repository**: Select your GitHub repository (`mbvb1312/VEXHALIA`)
-   - **Branch**: `main`
-   - **Main file path**: `app.py`
+3. **Add secrets** (in Space Settings → Repository secrets):
+   ```
+   GOOGLE_API_KEY = your_gemini_key
+   GROQ_API_KEY = your_groq_key
+   LLM_PROVIDER = gemini
+   ```
 
-4. **Add your Secrets (API Keys)**:
-   - Before clicking Deploy, click on **"Advanced settings..."**
-   - In the "Secrets" text box, paste your API keys exactly like your `.env` file:
-     ```toml
-     LLM_PROVIDER="gemini"
-     GOOGLE_API_KEY="your_gemini_key_here"
-     GROQ_API_KEY="your_groq_key_here"
-     ```
-   - Click **Save**.
+4. **Push your code to the Space**
+   ```bash
+   git remote add hf https://huggingface.co/spaces/YOUR_USERNAME/VEXHALIA
+   git push hf main
+   ```
 
-5. **Deploy**:
-   - Click **"Deploy!"**
-   - Streamlit will automatically read your `requirements.txt`, install everything, and give you a live public URL (e.g., `https://vexhalia.streamlit.app`).
+5. **Wait for build** — Hugging Face will install dependencies from `requirements.txt` and launch the Streamlit app automatically.
+
+6. **Access your live app** at:
+   ```
+   https://YOUR_USERNAME-vexhalia.hf.space
+   ```
+
+> **Note:** The free tier on Hugging Face Spaces provides a persistent URL that stays online 24/7. The app may cold-start after periods of inactivity (~30 seconds).
 
 ---
 
