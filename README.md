@@ -2,8 +2,6 @@
 
 <div align="center">
 
-![VEXHALIA Hero Banner](assets/hero_banner.png)
-
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://python.org)
 [![Streamlit](https://img.shields.io/badge/Streamlit-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white)](https://streamlit.io)
 [![LangGraph](https://img.shields.io/badge/LangGraph-Agentic_AI-7c3aed?style=for-the-badge)](https://langchain-ai.github.io/langgraph/)
@@ -37,23 +35,7 @@
 
 The agent is built as a **LangGraph StateGraph** with conditional routing, parallel execution, and conversation memory:
 
-![Architecture Diagram](assets/architecture.png)
-
-### Agent Flow
-
-```mermaid
-graph LR
-    A[User Input] --> B{Router}
-    B -->|Known City| C[Vector Store + Wikipedia]
-    B -->|Unknown City| D[Web Search + Wikipedia]
-    C --> E[Weather API]
-    C --> F[Image Search]
-    D --> E
-    D --> F
-    E --> G[Synthesizer]
-    F --> G
-    G --> H[Streamlit UI]
-```
+![LangGraph Topology](graph.png)
 
 ### How It Works
 
@@ -66,19 +48,7 @@ graph LR
 5. **Synthesizer** → Combines all data and uses the LLM to generate a conversational, contextual response
 6. **Streamlit Renderer** → Parses the structured output to display summary, Plotly chart, and image gallery
 
-### LangGraph Topology
-
-![Graph Topology](graph.png)
-
----
-
-## 🖥️ UI Preview
-
-![UI Preview](assets/ui_preview.png)
-
----
-
-## 🧩 Design Decisions
+### Key Design Decisions
 
 <details>
 <summary><strong>Why conditional routing instead of always searching the web?</strong></summary>
@@ -93,15 +63,9 @@ Weather data and image retrieval are completely independent operations. Running 
 </details>
 
 <details>
-<summary><strong>Why Gemini with Groq fallback?</strong></summary>
+<summary><strong>Why manual tool execution instead of ToolNode?</strong></summary>
 <br>
-Google Gemini (2.0 Flash) provides excellent reasoning quality for free. However, the free tier has rate limits. By chaining Groq (Llama 3.3 70B) as an automatic fallback using LangChain's <code>.with_fallbacks()</code>, the system maintains 24/7 availability even under heavy usage — the failover is completely transparent to users.
-</details>
-
-<details>
-<summary><strong>Why Wikipedia integration?</strong></summary>
-<br>
-DuckDuckGo search results can be shallow or SEO-optimized. Wikipedia provides structured, factual content that significantly improves the quality of LLM synthesis. Both sources are fed to the LLM together, producing responses that are more accurate and informative than either source alone.
+To demonstrate understanding of the raw LLM tool-calling protocol. The <code>tool_executor</code> node manually parses the <code>tool_calls</code> payload from the AI message, looks up functions in a registry dictionary, executes them, and constructs <code>ToolMessage</code> objects with matching <code>tool_call_id</code> values. No framework abstractions are used.
 </details>
 
 ---
@@ -155,11 +119,7 @@ VEXHALIA/
 │   └── schemas.py                  # Pydantic models (TravelResponse, WeatherDataPoint)
 ├── utils/
 │   └── helpers.py                  # LLM factory with fallback, city extraction, follow-up detection
-├── assets/
-│   ├── hero_banner.png             # README hero banner
-│   ├── architecture.png            # Architecture diagram
-│   └── ui_preview.png              # UI preview screenshot
-├── graph.png                       # LangGraph topology visualization
+├── graph.png                       # LangGraph topology (auto-generated from code)
 ├── requirements.txt                # Pinned dependencies
 └── .env.example                    # Environment variable template
 ```
@@ -213,7 +173,7 @@ VEXHALIA/
 
 ---
 
-## 🔄 High-Availability LLM Routing
+## 🔄 High-Availability LLM Routing (Auto-Fallback)
 
 ```
 User Query → Gemini (primary, high quality)
@@ -223,7 +183,9 @@ User Query → Gemini (primary, high quality)
 
 The system uses **Google Gemini** as the primary intelligence engine. Because free-tier API keys have hourly rate limits, the `get_llm()` helper implements a robust fallback strategy using LangChain's `.with_fallbacks([fallback])`.
 
-If Gemini throws a rate limit or service error, the system **automatically and seamlessly fails over to Groq** without crashing or exposing errors to the user. This ensures 24/7 availability for the travel assistant.
+If Gemini throws a rate limit or service error, the system **automatically and seamlessly fails over to Groq (Llama 3.3 70B)** without crashing or exposing errors to the user. This ensures 24/7 availability for the travel assistant.
+
+The project is also fully compatible with **OpenAI GPT-4o** and **Anthropic Claude 3.5 Sonnet** — simply change `LLM_PROVIDER` in `.env`.
 
 ---
 
@@ -256,13 +218,49 @@ Located in [`agents/nodes/tool_executor.py`](agents/nodes/tool_executor.py). The
 
 ### 2. Parallel Fan-Out
 Defined in [`agents/graph.py`](agents/graph.py). After the city summary is obtained, the graph branches into two independent nodes:
-- `fetch_weather` — calls the Open-Meteo API
-- `fetch_images` — retrieves destination photos
+- `fetch_weather` — calls the Open-Meteo API (16-day forecast)
+- `fetch_images` — retrieves destination photos via DuckDuckGo
 
 Both edges originate from the same parent node and converge at the `synthesizer`. LangGraph executes them concurrently, reducing total latency.
 
 ### 3. Human-in-the-Loop & Memory (Time Travel)
-Implemented via `MemorySaver` checkpointer in [`agents/graph.py`](agents/graph.py). Each conversation is assigned a `thread_id`, and the checkpointer preserves the full state between invocations. Follow-up detection logic in [`utils/helpers.py`](utils/helpers.py) identifies when a user references time changes without naming a new city, triggering only the weather update path.
+Implemented via `MemorySaver` checkpointer in [`agents/graph.py`](agents/graph.py). Each conversation is assigned a `thread_id`, and the checkpointer preserves the full state between invocations. Follow-up detection logic in [`utils/helpers.py`](utils/helpers.py) identifies when a user references time changes without naming a new city.
+
+---
+
+## ☁️ Deployment (Hugging Face Spaces)
+
+### Step-by-Step Deployment
+
+1. **Create a Hugging Face account** at [huggingface.co](https://huggingface.co)
+
+2. **Create a new Space**
+   - Go to [huggingface.co/new-space](https://huggingface.co/new-space)
+   - Name: `VEXHALIA`
+   - SDK: **Streamlit**
+   - Visibility: **Public**
+
+3. **Add secrets** (in Space Settings → Repository secrets):
+   ```
+   GOOGLE_API_KEY = your_gemini_key
+   GROQ_API_KEY = your_groq_key
+   LLM_PROVIDER = gemini
+   ```
+
+4. **Push your code to the Space**
+   ```bash
+   git remote add hf https://huggingface.co/spaces/YOUR_USERNAME/VEXHALIA
+   git push hf main
+   ```
+
+5. **Wait for build** — Hugging Face will install dependencies from `requirements.txt` and launch the Streamlit app automatically.
+
+6. **Access your live app** at:
+   ```
+   https://YOUR_USERNAME-vexhalia.hf.space
+   ```
+
+> **Note:** The free tier on Hugging Face Spaces provides a persistent URL that stays online 24/7. The app may cold-start after periods of inactivity (~30 seconds).
 
 ---
 
